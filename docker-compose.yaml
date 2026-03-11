@@ -1,0 +1,39 @@
+services:
+  attendee-web:
+    build: ./
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://attendee-redis:6379/0
+      - DJANGO_SETTINGS_MODULE=attendee.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - DISABLE_EMAIL=true
+      - POSTGRES_SSL_REQUIRE=true
+      - DJANGO_SSL_REQUIRE=false
+    command: bash -c "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn attendee.wsgi --bind 0.0.0.0:8000"
+    entrypoint: []
+    depends_on:
+      - attendee-redis
+
+  attendee-worker:
+    build: ./
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://attendee-redis:6379/0
+      - DJANGO_SETTINGS_MODULE=attendee.settings.production
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - POSTGRES_SSL_REQUIRE=true
+    command: "celery -A attendee worker -l INFO"
+    depends_on:
+      - attendee-redis
+
+  attendee-redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

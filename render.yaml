@@ -1,0 +1,81 @@
+services:
+  # Attendee Web Service (Django + Gunicorn)
+  - type: web
+    name: attendee-bot
+    runtime: docker
+    region: ohio
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerCommand: bash -c "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn attendee.wsgi --bind 0.0.0.0:$PORT"
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: attendee-redis
+          type: redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: attendee.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: CREDENTIALS_ENCRYPTION_KEY
+        generateValue: true
+      - key: DISABLE_EMAIL
+        value: "true"
+      - key: POSTGRES_SSL_REQUIRE
+        value: "true"
+      - key: DJANGO_SSL_REQUIRE
+        value: "true"
+      - key: DISABLE_REDIS_SSL
+        value: "true"
+      - key: SITE_DOMAIN
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_RECORDING_STORAGE_BUCKET_NAME
+        sync: false
+
+  # Celery Worker (background tasks: transcription, bot management)
+  - type: worker
+    name: attendee-worker
+    runtime: docker
+    region: ohio
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerCommand: bash -c "celery -A attendee worker -l INFO"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: attendee-redis
+          type: redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: attendee.settings.production
+      - key: CREDENTIALS_ENCRYPTION_KEY
+        generateValue: true
+      - key: POSTGRES_SSL_REQUIRE
+        value: "true"
+      - key: DISABLE_REDIS_SSL
+        value: "true"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_RECORDING_STORAGE_BUCKET_NAME
+        sync: false
+
+  # Redis for Celery task queue
+  - type: redis
+    name: attendee-redis
+    plan: free
+    region: ohio
+    maxmemoryPolicy: noeviction
+    ipAllowList: []

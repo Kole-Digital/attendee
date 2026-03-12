@@ -44,7 +44,9 @@ else:
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
 
-if os.getenv("DISABLE_EMAIL", "false") != "true":
+if os.getenv("EMAIL_BACKEND", "") == "console":
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+elif os.getenv("DISABLE_EMAIL", "false") != "true":
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
     EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.mailgun.org")
     EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")

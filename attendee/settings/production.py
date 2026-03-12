@@ -9,6 +9,11 @@ from .base import LOG_FORMATTERS
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "https://app.attendee.dev").split(",")
+]
+
 DATABASES = {
     "default": dj_database_url.config(
         env="DATABASE_URL",

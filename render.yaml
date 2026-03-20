@@ -46,7 +46,7 @@ services:
     region: ohio
     plan: starter
     dockerfilePath: ./Dockerfile
-    dockerCommand: bash -c "celery -A attendee worker -l INFO"
+    dockerCommand: bash -c "celery -A attendee worker -l INFO --concurrency=1 --max-tasks-per-child=1"
     envVars:
       - key: DATABASE_URL
         sync: false

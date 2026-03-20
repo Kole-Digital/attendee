@@ -247,3 +247,15 @@ class PerParticipantStreamingAudioInputManager:
             oldest_transcriber.finish()
             del self.streaming_transcribers[oldest_speaker_id]
             logger.info(f"Stopped oldest streaming transcriber for speaker {oldest_speaker_id}")
+
+    def cleanup(self):
+        """Close all streaming transcriber connections to prevent resource leaks."""
+        speaker_ids = list(self.streaming_transcribers.keys())
+        for speaker_id in speaker_ids:
+            try:
+                self.streaming_transcribers[speaker_id].finish()
+            except Exception as e:
+                logger.warning(f"Error finishing streaming transcriber for speaker {speaker_id}: {e}")
+        self.streaming_transcribers.clear()
+        self.last_nonsilent_audio_time.clear()
+        logger.info(f"Cleaned up {len(speaker_ids)} streaming transcribers")

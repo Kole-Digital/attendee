@@ -104,6 +104,7 @@ class WebBotAdapter(BotAdapter):
 
         self.should_create_debug_recording = should_create_debug_recording
         self.debug_screen_recorder = None
+        self.display = None
 
         self.silence_detection_activated = False
         self.joined_at = None
@@ -880,6 +881,14 @@ class WebBotAdapter(BotAdapter):
                 self.websocket_server.shutdown()
             except Exception as e:
                 logger.warning(f"Error shutting down websocket server: {e}")
+
+        # Stop the virtual display (Xvfb) to prevent orphaned processes
+        if hasattr(self, 'display') and self.display:
+            try:
+                self.display.stop()
+                logger.info("Stopped virtual display (Xvfb)")
+            except Exception as e:
+                logger.warning(f"Error stopping virtual display: {e}")
 
         self.cleaned_up = True
 

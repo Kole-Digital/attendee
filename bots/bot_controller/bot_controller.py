@@ -587,6 +587,8 @@ class BotController:
             self.main_loop.quit()
 
         if self.screen_and_audio_recorder:
+            logger.info("Stopping screen and audio recording...")
+            self.screen_and_audio_recorder.stop_recording()
             logger.info("Telling media recorder receiver to cleanup...")
             self.screen_and_audio_recorder.cleanup()
 
@@ -601,6 +603,10 @@ class BotController:
         if self.websocket_client_manager:
             logger.info("Telling websocket client manager to cleanup...")
             self.websocket_client_manager.cleanup()
+
+        if hasattr(self, 'per_participant_streaming_audio_input_manager') and self.per_participant_streaming_audio_input_manager:
+            logger.info("Telling streaming audio input manager to cleanup...")
+            self.per_participant_streaming_audio_input_manager.cleanup()
 
         if self.get_recording_file_location():
             self.upload_recording_to_external_media_storage_if_enabled()

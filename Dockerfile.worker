@@ -54,4 +54,4 @@ RUN mkdir -p /etc/opt/chrome/policies/managed \
 USER app
 
 ENTRYPOINT ["/tini","--","/usr/local/bin/entrypoint.sh"]
-CMD ["celery", "-A", "attendee", "worker", "-l", "INFO"]
+CMD ["celery", "-A", "attendee", "worker", "-l", "INFO", "--concurrency=1", "--max-tasks-per-child=1"]

@@ -26,7 +26,8 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
       - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
       - POSTGRES_SSL_REQUIRE=true
-    command: "celery -A attendee worker -l INFO"
+    command: "celery -A attendee worker -l INFO --concurrency=1 --max-tasks-per-child=1"
+    shm_size: '2g'
     depends_on:
       - attendee-redis
 

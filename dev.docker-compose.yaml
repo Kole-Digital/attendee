@@ -10,7 +10,7 @@ services:
       - REDIS_URL=redis://redis:6379/5
       - DJANGO_SETTINGS_MODULE=attendee.settings.development
       - ENABLE_CHROME_SANDBOX=false
-    command: "celery -A attendee worker -l INFO --concurrency=1 --max-tasks-per-child=1"
+    command: "celery -A attendee worker -l INFO --concurrency=5 --max-tasks-per-child=5"
     shm_size: '2g'
 
   attendee-scheduler-local:

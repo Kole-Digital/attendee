@@ -1638,6 +1638,8 @@ class BotController:
             self.websocket_audio_error_ticker += 1
 
     def save_debug_artifacts(self, message, new_bot_event):
+        if not os.getenv("AWS_RECORDING_STORAGE_BUCKET_NAME") or os.getenv("AWS_ACCESS_KEY_ID") == "dummy":
+            return
         screenshot_available = message.get("screenshot_path") is not None
         mhtml_file_available = message.get("mhtml_file_path") is not None
 

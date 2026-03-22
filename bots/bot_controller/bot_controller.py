@@ -604,7 +604,7 @@ class BotController:
             logger.info("Telling websocket client manager to cleanup...")
             self.websocket_client_manager.cleanup()
 
-        if hasattr(self, 'per_participant_streaming_audio_input_manager') and self.per_participant_streaming_audio_input_manager:
+        if hasattr(self, "per_participant_streaming_audio_input_manager") and self.per_participant_streaming_audio_input_manager:
             logger.info("Telling streaming audio input manager to cleanup...")
             self.per_participant_streaming_audio_input_manager.cleanup()
 

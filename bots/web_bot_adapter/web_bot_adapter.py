@@ -883,7 +883,7 @@ class WebBotAdapter(BotAdapter):
                 logger.warning(f"Error shutting down websocket server: {e}")
 
         # Stop the virtual display (Xvfb) to prevent orphaned processes
-        if hasattr(self, 'display') and self.display:
+        if hasattr(self, "display") and self.display:
             try:
                 self.display.stop()
                 logger.info("Stopped virtual display (Xvfb)")

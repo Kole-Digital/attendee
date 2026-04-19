@@ -590,6 +590,11 @@ class WebBotAdapter(BotAdapter):
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
 
+        chrome_proxy = os.getenv("CHROME_PROXY")
+        if chrome_proxy:
+            options.add_argument(f"--proxy-server={chrome_proxy}")
+            logger.info(f"Chrome proxy configured: {chrome_proxy}")
+
         if os.getenv("ENABLE_CHROME_SANDBOX", "false").lower() != "true":
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-setuid-sandbox")

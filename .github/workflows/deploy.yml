@@ -14,9 +14,10 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
           script: |
             cd /opt/attendee
             git pull origin main
-            docker compose -f docker-compose.prod.yaml build --no-cache attendee-web attendee-worker
+            docker compose -f docker-compose.prod.yaml build attendee-web attendee-worker
             docker compose -f docker-compose.prod.yaml up -d attendee-web attendee-worker
             docker image prune -f

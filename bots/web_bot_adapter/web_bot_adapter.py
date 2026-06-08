@@ -587,6 +587,10 @@ class WebBotAdapter(BotAdapter):
     def add_subclass_specific_chrome_options(self, options):
         pass
 
+    # By default, we want to disable GPU
+    def subclass_specific_use_disable_gpu_chrome_option(self):
+        return True
+
     def init_driver(self):
         self.write_chrome_policies_file()
 
@@ -598,7 +602,8 @@ class WebBotAdapter(BotAdapter):
         options.add_argument(f"--window-size={self.video_frame_size[0]},{self.video_frame_size[1]}")
         options.add_argument("--start-fullscreen")
         # options.add_argument('--headless=new')
-        options.add_argument("--disable-gpu")
+        if self.subclass_specific_use_disable_gpu_chrome_option():
+            options.add_argument("--disable-gpu")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-application-cache")
         options.add_argument("--disable-dev-shm-usage")
@@ -658,9 +663,13 @@ class WebBotAdapter(BotAdapter):
                 libraries_code += library_file.read() + "\n"
             logger.info(f"Loaded library from {os.path.relpath(library_path, current_dir)}")
 
-        # Read your payload using path relative to current file
-        with open(os.path.join(current_dir, "..", self.get_chromedriver_payload_file_name()), "r") as file:
-            payload_code = file.read()
+        # Read the subclass payload files using paths relative to current file.
+        # Files are concatenated in order, so later files can depend on earlier ones.
+        payload_code = ""
+        for payload_file_name in self.get_chromedriver_payload_file_names():
+            with open(os.path.join(current_dir, "..", payload_file_name), "r") as file:
+                payload_code += file.read() + "\n"
+            logger.info(f"Loaded chromedriver payload from {payload_file_name}")
 
         # Read shared_chromedriver_payload.js
         with open(os.path.join(current_dir, "shared_chromedriver_payload.js"), "r") as file:
@@ -682,7 +691,7 @@ class WebBotAdapter(BotAdapter):
         self.display_var_for_debug_recording = os.environ.get("DISPLAY")
         if os.environ.get("DISPLAY") is None:
             # Create virtual display only if no real display is available
-            self.display = Display(visible=0, size=(1930, 1090))
+            self.display = Display(visible=0, size=(1930, 1090), use_xauth=True)
             self.display.start()
             self.display_var_for_debug_recording = self.display.new_display_var
 

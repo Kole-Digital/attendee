@@ -343,8 +343,8 @@ TRANSCRIPTION_SETTINGS_SCHEMA = {
                     "description": "Whether to automatically detect the spoken language.",
                 },
                 "keyterms_prompt": {"type": "array", "items": {"type": "string"}, "description": "List of words or phrases to boost in the transcript. Only supported for when using the 'slam-1' speech model. See AssemblyAI docs for details."},
-                "speech_model": {"type": "string", "enum": ["best", "nano", "slam-1", "universal", "universal-2", "universal-3-pro"], "description": "The speech model to use for transcription. See AssemblyAI docs for details. This parameter is deprecated, use the speech_models param instead."},
-                "speech_models": {"type": "array", "items": {"type": "string", "enum": ["universal-2", "universal-3-pro"]}, "uniqueItems": True, "description": "The speech models to use for transcription in order of preference. Defaults to ['universal-3-pro', 'universal-2']. See AssemblyAI docs for details."},
+                "speech_model": {"type": "string", "description": "The speech model to use for transcription. See AssemblyAI docs for details. This parameter is deprecated, use the speech_models param instead."},
+                "speech_models": {"type": "array", "items": {"type": "string"}, "uniqueItems": True, "description": "The speech models to use for transcription in order of preference. Defaults to ['universal-3-pro', 'universal-2']. See AssemblyAI docs for details."},
                 "speaker_labels": {"type": "boolean", "description": "Whether to enable AssemblyAI's ML-based diarization. Only needed if multiple people are speaking into a single microphone. Defaults to false."},
                 "use_eu_server": {"type": "boolean", "description": "Whether to use the EU server for transcription. Defaults to false."},
                 "language_detection_options": {"type": "object", "properties": {"expected_languages": {"type": "array", "items": {"type": "string"}}, "fallback_language": {"type": "string"}}, "description": "Options for controlling the automatic language detection. See AssemblyAI docs for details.", "additionalProperties": False},
@@ -420,6 +420,23 @@ TRANSCRIPTION_SETTINGS_SCHEMA = {
         "custom_async": {
             "type": "object",
             "description": "Custom self-hosted transcription service with async processing. Additional properties will be sent as form data in the request. Only supported if self-hosting Attendee.",
+            "required": [],
+            "additionalProperties": True,
+        },
+        "custom_async_v2": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "type": "object",
+                    "description": "Key-value pairs to be sent as headers in the request to the custom transcription service.",
+                    "additionalProperties": {"type": "string"},
+                },
+                "form_data": {
+                    "type": "object",
+                    "description": "Key-value pairs to be sent as form data in the request to the custom transcription service.",
+                },
+            },
+            "description": "Custom self-hosted transcription service with async processing. Use `headers` for HTTP request headers (e.g. auth tokens) and `form_data` for multipart form fields sent alongside the audio file. Only supported if self-hosting Attendee.",
             "required": [],
             "additionalProperties": True,
         },
@@ -720,6 +737,12 @@ GOOGLE_MEET_SETTINGS_SCHEMA = {
             "enum": ["always", "only_if_required"],
             "description": "The mode to use for the Google Meet bot login. 'always' means the bot will always login, 'only_if_required' means the bot will only login if the meeting requires authentication.",
             "default": "always",
+        },
+        "ui_interaction_mode": {
+            "type": "string",
+            "enum": ["robotic", "humanized"],
+            "description": "The UI interaction mode for the Google Meet bot. 'humanized' performs more human-like interactions to evade bot detection, but the bot will take about 10 seconds longer to join the meeting.",
+            "default": "humanized",
         },
         "login_group_name": {
             "type": ["string", "null"],
@@ -1148,7 +1171,7 @@ class CreateAsyncTranscriptionSerializer(serializers.Serializer):
         if value.get("deepgram", {}).get("callback"):
             raise serializers.ValidationError({"transcription_settings": "Deepgram callback is not available for async transcription."})
 
-        if "custom_async" in value and not os.getenv("CUSTOM_ASYNC_TRANSCRIPTION_URL"):
+        if ("custom_async" in value or "custom_async_v2" in value) and not os.getenv("CUSTOM_ASYNC_TRANSCRIPTION_URL"):
             raise serializers.ValidationError({"transcription_settings": "CUSTOM_ASYNC_TRANSCRIPTION_URL environment variable is not set. Please set the CUSTOM_ASYNC_TRANSCRIPTION_URL environment variable to the URL of your custom async transcription service."})
 
         if not value:
@@ -1377,7 +1400,7 @@ class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
         if value.get("deepgram", {}).get("callback") and value.get("deepgram", {}).get("detect_language"):
             raise serializers.ValidationError({"transcription_settings": "Language detection is not supported for streaming transcription. Please pass language='multi' instead of detect_language=true."})
 
-        if "custom_async" in value and not os.getenv("CUSTOM_ASYNC_TRANSCRIPTION_URL"):
+        if ("custom_async" in value or "custom_async_v2" in value) and not os.getenv("CUSTOM_ASYNC_TRANSCRIPTION_URL"):
             raise serializers.ValidationError({"transcription_settings": "CUSTOM_ASYNC_TRANSCRIPTION_URL environment variable is not set. Please set the CUSTOM_ASYNC_TRANSCRIPTION_URL environment variable to the URL of your custom async transcription service."})
 
         return value
@@ -1453,7 +1476,7 @@ class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
     google_meet_settings = GoogleMeetSettingsJSONField(
         help_text="The Google Meet-specific settings for the bot.",
         required=False,
-        default={"use_login": False, "login_mode": "always", "login_group_name": None},
+        default={"use_login": False, "login_mode": "always", "ui_interaction_mode": "humanized", "login_group_name": None},
     )
 
     def validate_google_meet_settings(self, value):
@@ -1461,7 +1484,12 @@ class CreateBotSerializer(BotValidationMixin, serializers.Serializer):
             return value
 
         # Define defaults
-        defaults = {"use_login": False, "login_mode": "always", "login_group_name": None}
+        defaults = {"use_login": False, "login_mode": "always", "ui_interaction_mode": "humanized", "login_group_name": None}
+
+        # If use_login is set to true, then ui_interaction_mode should default to "robotic" (when not
+        # explicitly provided), because in this case humanized motion is not needed.
+        if value.get("use_login"):
+            defaults["ui_interaction_mode"] = "robotic"
 
         try:
             jsonschema.validate(instance=value, schema=GOOGLE_MEET_SETTINGS_SCHEMA)

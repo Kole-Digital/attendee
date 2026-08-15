@@ -259,6 +259,10 @@ class WebBotAdapter(BotAdapter):
             # Convert float32 to PCM 16-bit by multiplying by 32768.0
             audio_data = (audio_data * 32768.0).astype(np.int16)
 
+            # Reset silence timer when we receive non-zero per-participant audio
+            if np.any(audio_data):
+                self.last_audio_message_processed_time = time.time()
+
             self.add_audio_chunk_callback(participant_id, datetime.datetime.utcnow(), audio_data.tobytes())
 
     def process_per_participant_video_frame(self, message):

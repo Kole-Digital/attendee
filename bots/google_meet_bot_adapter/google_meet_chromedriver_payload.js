@@ -258,12 +258,19 @@ class StyleManager {
         
         const averageDeviation = sumDeviation / this.audioDataArray.length;
         
-        // If average deviation is above threshold, we have audio activity
+        // Always send SilenceStatus so Python can distinguish
+        // "confirmed silent" from "JS stopped sending messages"
         if (averageDeviation > this.silenceThreshold) {
             window.ws.sendJson({
                 type: 'SilenceStatus',
                 volume: averageDeviation,
                 isSilent: false
+            });
+        } else {
+            window.ws.sendJson({
+                type: 'SilenceStatus',
+                volume: averageDeviation,
+                isSilent: true
             });
         }
     }

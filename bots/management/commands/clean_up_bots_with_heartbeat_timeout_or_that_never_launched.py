@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -8,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 from kubernetes import client, config
 
+from bots.k8s_utils import find_bot_pod_name, retrieve_bot_pod_information
 from bots.models import Bot, BotEventManager, BotEventSubTypes, BotEventTypes
 
 logger = logging.getLogger(__name__)
@@ -20,12 +22,41 @@ class Command(BaseCommand):
         super().__init__()
         self.namespace = settings.BOT_POD_NAMESPACE
 
+    def create_k8s_client(self):
+        try:
+            config.load_incluster_config()
+        except config.ConfigException:
+            config.load_kube_config()
+        return client.CoreV1Api()
+
+    def retrieve_bot_infrastructure_information(self, bot) -> dict | None:
+        if os.getenv("LAUNCH_BOT_METHOD") == "kubernetes":
+            try:
+                v1 = self.create_k8s_client()
+                return retrieve_bot_pod_information(v1, self.namespace, find_bot_pod_name(v1, self.namespace, bot))
+            except Exception:
+                logger.exception(f"Failed to gather bot pod information for bot {bot.object_id}")
+        return None
+
     def terminate_bot(self, bot, event_sub_type):
         try:
+            # Retrieve the bot infrastructure information this may help understand why it needed to be terminated
+            infrastructure_information = self.retrieve_bot_infrastructure_information(bot)
+            event_metadata = None
+            if settings.STORE_INFRASTRUCTURE_INFORMATION_IN_BOT_EVENT_METADATA:
+                event_metadata = {"infrastructure_information": json.dumps(infrastructure_information)}
+            else:
+                logger.warning(
+                    "Infrastructure information for bot %s (not stored in event metadata because STORE_INFRASTRUCTURE_INFORMATION_IN_BOT_EVENT_METADATA is false): %s",
+                    bot.object_id,
+                    json.dumps(infrastructure_information),
+                )
+
             BotEventManager.create_event(
                 bot=bot,
                 event_type=BotEventTypes.FATAL_ERROR,
                 event_sub_type=event_sub_type,
+                event_metadata=event_metadata,
             )
         except Exception as e:
             logger.error(f"Failed to create fatal error {event_sub_type} event for bot {bot.id}: {str(e)}")
@@ -37,17 +68,11 @@ class Command(BaseCommand):
             self._terminate_ephemeral_docker_container(bot)
 
     def _terminate_kubernetes_pod(self, bot):
-        # Initialize kubernetes client
-        try:
-            config.load_incluster_config()
-        except config.ConfigException:
-            config.load_kube_config()
-        v1 = client.CoreV1Api()
-        logger.info("initialized kubernetes client")
+        v1 = self.create_k8s_client()
 
         # Try to delete the pod if it exists
         try:
-            pod_name = bot.k8s_pod_name()
+            pod_name = find_bot_pod_name(v1, self.namespace, bot)
             v1.delete_namespaced_pod(
                 name=pod_name,
                 namespace=self.namespace,
@@ -57,7 +82,7 @@ class Command(BaseCommand):
         except client.ApiException as pod_error:
             # 404 means pod doesn't exist, which is fine
             if pod_error.status != 404:
-                logger.warning(f"Error deleting pod {pod_name}: {str(pod_error)}")
+                logger.warning(f"Error deleting pod for bot {bot.object_id}: {str(pod_error)}")
 
     def _terminate_ephemeral_docker_container(self, bot):
         """Remove the ephemeral Docker container for this bot (container name: bot-{id})."""
